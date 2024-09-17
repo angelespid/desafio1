@@ -1,21 +1,59 @@
 #include <LiquidCrystal.h>
-LiquidCrystal lcd (2,3,4,5,6,7);
 
-int analogPin = 0;
+LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
+
+int analogPin = A0;
+int botonInicio = 8;
+int botonDetener = 13;
+
 int val = 0;
-void setup ()
-{
+bool adquiriendo = false;
+
+int estadoInicio = HIGH;
+int estadoDetener = HIGH;
+
+unsigned long tiempoUltimoCambio = 0;
+const unsigned long debounceDelay = 200;
+
+void setup() {
   Serial.begin(9600);
-  lcd.begin(16,2);
-  int analogPin = 0;
-  int val = 0;
+  lcd.begin(16, 2);
+
+  pinMode(botonInicio, INPUT_PULLUP);
+  pinMode(botonDetener, INPUT_PULLUP);
+
+  lcd.print("Esperando...");
 }
-void loop()
-{val=analogRead(analogPin);
- Serial.println(val);
- lcd.print("Hola");
- delay(3000);
- lcd.clear();
- val=analogRead(analogPin);
- Serial.println(val);
+
+void loop() {
+  unsigned long tiempoActual = millis();
+
+  if (digitalRead(botonInicio) == LOW && (tiempoActual - tiempoUltimoCambio > debounceDelay)) {
+    adquiriendo = !adquiriendo;
+    if (adquiriendo) {
+      lcd.clear();
+      lcd.print("Adquiriendo...");
+    } else {
+      lcd.clear();
+      lcd.print("Detenido...");
+    }
+    tiempoUltimoCambio = tiempoActual;
+  }
+
+  if (digitalRead(botonDetener) == LOW && (tiempoActual - tiempoUltimoCambio > debounceDelay)) {
+    adquiriendo = false;
+    lcd.clear();
+    lcd.print("Detenido...");
+    tiempoUltimoCambio = tiempoActual;
+  }
+
+  if (adquiriendo) {
+    val = analogRead(analogPin);
+    Serial.println(val);
+
+    lcd.setCursor(0, 1);
+    lcd.print("Valor: ");
+    lcd.print(val);
+    delay(1000);
+  }
 }
