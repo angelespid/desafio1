@@ -3,14 +3,11 @@
 LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
 
 int analogPin = A0;
-int botonInicio = 8;
-int botonDetener = 13;
+int botonInicio = 8;  // Botón para iniciar la toma de muestras
+int botonDetener = 13;  // Botón para detener la toma de muestras
 
 int val = 0;
 bool adquiriendo = false;
-
-int estadoInicio = HIGH;
-int estadoDetener = HIGH;
 
 unsigned long tiempoUltimoCambio = 0;
 const unsigned long debounceDelay = 200;
@@ -19,8 +16,8 @@ void setup() {
   Serial.begin(9600);
   lcd.begin(16, 2);
 
-  pinMode(botonInicio, INPUT_PULLUP);
-  pinMode(botonDetener, INPUT_PULLUP);
+  pinMode(botonInicio, INPUT_PULLUP);  // Botón inicio con resistencia pull-up interna
+  pinMode(botonDetener, INPUT_PULLUP);  // Botón stop resistencia pull-up interna
 
   lcd.print("Esperando...");
 }
@@ -28,32 +25,35 @@ void setup() {
 void loop() {
   unsigned long tiempoActual = millis();
 
+  // Iniciar  botón de inicio
   if (digitalRead(botonInicio) == LOW && (tiempoActual - tiempoUltimoCambio > debounceDelay)) {
-    adquiriendo = !adquiriendo;
-    if (adquiriendo) {
-      lcd.clear();
-      lcd.print("Adquiriendo...");
-    } else {
-      lcd.clear();
-      lcd.print("Detenido...");
-    }
+    adquiriendo = true;  // Cambia el estado a adquiriendo
+    lcd.clear();
+    lcd.print("Adquiriendo...");
     tiempoUltimoCambio = tiempoActual;
   }
 
+  // Detener el botón de detener
   if (digitalRead(botonDetener) == LOW && (tiempoActual - tiempoUltimoCambio > debounceDelay)) {
-    adquiriendo = false;
+    adquiriendo = false;  // Cambia el estado a detenido
     lcd.clear();
     lcd.print("Detenido...");
     tiempoUltimoCambio = tiempoActual;
   }
 
+  // Si estamos adquiriendo los valores del pin analógico
   if (adquiriendo) {
-    val = analogRead(analogPin);
+    val = analogRead(analogPin);  // Leer el valor analógico
+
+    // Mostrar el valor en el Monitor Serial
     Serial.println(val);
 
+    // Muestra el valor en la LCD
     lcd.setCursor(0, 1);
     lcd.print("Valor: ");
     lcd.print(val);
-    delay(1000);
+
+    delayMicroseconds(10);  // Pausa para mejorar la simulación
   }
 }
+
