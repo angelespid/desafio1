@@ -1,6 +1,9 @@
 #include <LiquidCrystal.h>
 
 LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
+#include <LiquidCrystal.h>
+
+LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
 
 int analogPin = A0;
 int botonInicio = 8;  // Botón para iniciar la toma de muestras
@@ -9,6 +12,11 @@ int botonDetener = 13;  // Botón para detener la toma de muestras
 int val = 0;
 bool adquiriendo = false;
 
+int valorMax = 511;  
+int valorMin = 511;
+float amplitudVoltios = 0;  // Variable
+const int offset = 511;  // Punto 0 
+
 unsigned long tiempoUltimoCambio = 0;
 const unsigned long debounceDelay = 200;
 
@@ -16,8 +24,8 @@ void setup() {
   Serial.begin(9600);
   lcd.begin(16, 2);
 
-  pinMode(botonInicio, INPUT_PULLUP);  // Botón inicio con resistencia pull-up interna
-  pinMode(botonDetener, INPUT_PULLUP);  // Botón stop resistencia pull-up interna
+  pinMode(botonInicio, INPUT_PULLUP);  
+  pinMode(botonDetener, INPUT_PULLUP);  
 
   lcd.print("Esperando...");
 }
@@ -25,35 +33,60 @@ void setup() {
 void loop() {
   unsigned long tiempoActual = millis();
 
-  // Iniciar  botón de inicio
+  // Iniciar con el botón de inicio
   if (digitalRead(botonInicio) == LOW && (tiempoActual - tiempoUltimoCambio > debounceDelay)) {
     adquiriendo = true;  // Cambia el estado a adquiriendo
     lcd.clear();
     lcd.print("Adquiriendo...");
+    valorMax = offset;  
+    valorMin = offset;  
     tiempoUltimoCambio = tiempoActual;
   }
 
-  // Detener el botón de detener
+  // Detener 
   if (digitalRead(botonDetener) == LOW && (tiempoActual - tiempoUltimoCambio > debounceDelay)) {
-    adquiriendo = false;  // Cambia el estado a detenido
+    adquiriendo = false;  // Detenido
     lcd.clear();
     lcd.print("Detenido...");
+
+    // Calcular 
+    amplitudVoltios = (valorMax - valorMin) * (5.0 / 1023.0);
+
+    // Mostrar en el Monitor Serial
+    Serial.print("Amplitud pico a pico: ");
+    Serial.print(amplitudVoltios);
+    Serial.println(" V");
+
+    // Mostrar la amplitud en la LCD
+    lcd.setCursor(0, 1);
+    lcd.print("Amp: ");
+    lcd.print(amplitudVoltios);
+    lcd.print(" V");
+
     tiempoUltimoCambio = tiempoActual;
   }
 
-  // Si estamos adquiriendo los valores del pin analógico
+  // leer los valores del pin analógico
   if (adquiriendo) {
     val = analogRead(analogPin);  // Leer el valor analógico
 
-    // Mostrar el valor en el Monitor Serial
+    // Actualiza 
+    if (val > valorMax) {
+      valorMax = val;
+    }
+    if (val < valorMin) {
+      valorMin = val;
+    }
+
+    // Monitor Serial
+    Serial.print("Valor actual: ");
     Serial.println(val);
 
-    // Muestra el valor en la LCD
+    // Mostrar el valor en la LCD
     lcd.setCursor(0, 1);
     lcd.print("Valor: ");
     lcd.print(val);
 
-    delayMicroseconds(10);  // Pausa para mejorar la simulación
+    delayMicroseconds(10);  // Pausa
   }
 }
-
