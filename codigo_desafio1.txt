@@ -1,24 +1,27 @@
 #include <LiquidCrystal.h>
 
 LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
-#include <LiquidCrystal.h>
-
-LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
 
 int analogPin = A0;
-int botonInicio = 8;  // Botón para iniciar la toma de muestras
-int botonDetener = 13;  // Botón para detener la toma de muestras
+int botonInicio = 8;  // Botón para iniciar 
+int botonDetener = 13;  // Botón para detener
 
 int val = 0;
 bool adquiriendo = false;
 
-int valorMax = 511;  
-int valorMin = 511;
-float amplitudVoltios = 0;  // Variable
-const int offset = 511;  // Punto 0 
+int valorMax = 511;  // Punto 
+int valorMin = 511;  // Punto medio
+float amplitudVoltios = 0;  // Variable para almacenar la amplitud
+const int offset = 511; 
 
 unsigned long tiempoUltimoCambio = 0;
 const unsigned long debounceDelay = 200;
+
+int cruces = 0;  // Contador de cruces
+int estadoAnterior = 511;  
+unsigned long tiempoInicio = 0;  
+unsigned long duracion = 0;  // tiempo
+float frecuenciaHz = 0;  
 
 void setup() {
   Serial.begin(9600);
@@ -33,60 +36,78 @@ void setup() {
 void loop() {
   unsigned long tiempoActual = millis();
 
-  // Iniciar con el botón de inicio
+  //  botón de inicio
   if (digitalRead(botonInicio) == LOW && (tiempoActual - tiempoUltimoCambio > debounceDelay)) {
     adquiriendo = true;  // Cambia el estado a adquiriendo
     lcd.clear();
     lcd.print("Adquiriendo...");
     valorMax = offset;  
     valorMin = offset;  
+    cruces = 0;  // Reiniciar el contador de cruces
+    estadoAnterior = analogRead(analogPin);  // Estado inicial de la señal
+    tiempoInicio = millis();  // Registra el tiempo de inicio
     tiempoUltimoCambio = tiempoActual;
   }
 
-  // Detener 
+  //  botón de detener
   if (digitalRead(botonDetener) == LOW && (tiempoActual - tiempoUltimoCambio > debounceDelay)) {
-    adquiriendo = false;  // Detenido
+    adquiriendo = false;  
     lcd.clear();
     lcd.print("Detenido...");
 
-    // Calcular 
+    // Calcula la amplitud en voltios
     amplitudVoltios = (valorMax - valorMin) * (5.0 / 1023.0);
 
-    // Mostrar en el Monitor Serial
+    // Calcula la duración de la toma de muestra
+    duracion = millis() - tiempoInicio;  // Duración
+    if (duracion > 0) {
+      frecuenciaHz = (cruces / 2.0) / (duracion / 1000.0);  // Cruces 
+    }
+
+    // Mostrar la amplitud y la frecuencia en el Serial Monitor
     Serial.print("Amplitud pico a pico: ");
     Serial.print(amplitudVoltios);
     Serial.println(" V");
 
-    // Mostrar la amplitud en la LCD
-    lcd.setCursor(0, 1);
+    Serial.print("Frecuencia: ");
+    Serial.print(frecuenciaHz);
+    Serial.println(" Hz");
+
+    // Mostrar la amplitud y frecuencia en la LCD
+    lcd.setCursor(0, 0);
     lcd.print("Amp: ");
     lcd.print(amplitudVoltios);
     lcd.print(" V");
+    lcd.setCursor(0, 1);
+    lcd.print("Freq: ");
+    lcd.print(frecuenciaHz);
+    lcd.print(" Hz");
 
     tiempoUltimoCambio = tiempoActual;
   }
 
-  // leer los valores del pin analógico
+  // Si estamos adquiriendo, leer los valores del pin analógico
   if (adquiriendo) {
-    val = analogRead(analogPin);  // Leer el valor analógico
+    int lectura = analogRead(analogPin);  // Leer el valor analógico
 
-    // Actualiza 
-    if (val > valorMax) {
-      valorMax = val;
+    // Actualizar el valor máximo y mínimo
+    if (lectura > valorMax) {
+      valorMax = lectura;
     }
-    if (val < valorMin) {
-      valorMin = val;
+    if (lectura < valorMin) {
+      valorMin = lectura;
     }
 
-    // Monitor Serial
+    // Contar los cruces por el valor de referencia (offset)
+    if ((lectura > offset && estadoAnterior <= offset) || (lectura < offset && estadoAnterior >= offset)) {
+      cruces++;
+    }
+    estadoAnterior = lectura;  // Actualizar el estado anterior
+
+    // Mostrar el valor actual en el Monitor Serial
     Serial.print("Valor actual: ");
-    Serial.println(val);
+    Serial.println(lectura);
 
-    // Mostrar el valor en la LCD
-    lcd.setCursor(0, 1);
-    lcd.print("Valor: ");
-    lcd.print(val);
-
-    delayMicroseconds(10);  // Pausa
+    delayMicroseconds(10);  // Pausa para mejorar la simulación
   }
 }
