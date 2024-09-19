@@ -3,32 +3,32 @@
 LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
 
 int analogPin = A0;
-int botonInicio = 8;  // Botón para iniciar la toma de muestras
-int botonDetener = 13;  // Botón para detener la toma de muestras
+int botonInicio = 8;  // Botón para iniciar 
+int botonDetener = 13;  // Botón para detener
 
 int val = 0;
 bool adquiriendo = false;
 
-int valorMax = 511;  // Punto medio de referencia en 511 (2.5V)
-int valorMin = 511;  // Punto medio de referencia en 511 (2.5V)
-float amplitudVoltios = 0;  // Variable para almacenar la amplitud en voltios
-const int offset = 511;  // Valor de referencia que corresponde a 2.5V
+int valorMax = 511;  // Punto 
+int valorMin = 511;  // Punto medio
+float amplitudVoltios = 0;  // Variable para almacenar la amplitud
+const int offset = 511; 
 
 unsigned long tiempoUltimoCambio = 0;
 const unsigned long debounceDelay = 200;
 
 int cruces = 0;  // Contador de cruces
-int estadoAnterior = 511;  // Para almacenar el estado anterior de la señal
-unsigned long tiempoInicio = 0;  // Tiempo en que comenzó la adquisición
-unsigned long duracion = 0;  // Duración de la adquisición
-float frecuenciaHz = 0;  // Variable para almacenar la frecuencia en Hz
+int estadoAnterior = 511;  
+unsigned long tiempoInicio = 0;  
+unsigned long duracion = 0;  // tiempo
+float frecuenciaHz = 0;  
 
 void setup() {
   Serial.begin(9600);
   lcd.begin(16, 2);
 
-  pinMode(botonInicio, INPUT_PULLUP);  // Botón 1 con resistencia pull-up interna
-  pinMode(botonDetener, INPUT_PULLUP);  // Botón 2 con resistencia pull-up interna
+  pinMode(botonInicio, INPUT_PULLUP);  
+  pinMode(botonDetener, INPUT_PULLUP);  
 
   lcd.print("Esperando...");
 }
@@ -36,32 +36,32 @@ void setup() {
 void loop() {
   unsigned long tiempoActual = millis();
 
-  // Iniciar la adquisición con el botón de inicio
+  //  botón de inicio
   if (digitalRead(botonInicio) == LOW && (tiempoActual - tiempoUltimoCambio > debounceDelay)) {
     adquiriendo = true;  // Cambia el estado a adquiriendo
     lcd.clear();
     lcd.print("Adquiriendo...");
-    valorMax = offset;  // Reiniciar el valor máximo en el offset (2.5V)
-    valorMin = offset;  // Reiniciar el valor mínimo en el offset (2.5V)
+    valorMax = offset;  
+    valorMin = offset;  
     cruces = 0;  // Reiniciar el contador de cruces
     estadoAnterior = analogRead(analogPin);  // Estado inicial de la señal
     tiempoInicio = millis();  // Registra el tiempo de inicio
     tiempoUltimoCambio = tiempoActual;
   }
 
-  // Detener la adquisición con el botón de detener
+  //  botón de detener
   if (digitalRead(botonDetener) == LOW && (tiempoActual - tiempoUltimoCambio > debounceDelay)) {
-    adquiriendo = false;  // Cambia el estado a detenido
+    adquiriendo = false;  
     lcd.clear();
     lcd.print("Detenido...");
 
-    // Calcular la amplitud en voltios
+    // Calcula la amplitud en voltios
     amplitudVoltios = (valorMax - valorMin) * (5.0 / 1023.0);
 
-    // Calcular la duración de la adquisición
-    duracion = millis() - tiempoInicio;  // Duración en milisegundos
+    // Calcula la duración de la toma de muestra
+    duracion = millis() - tiempoInicio;  // Duración
     if (duracion > 0) {
-      frecuenciaHz = (cruces / 2.0) / (duracion / 1000.0);  // Cruces divididos por la duración en segundos
+      frecuenciaHz = (cruces / 2.0) / (duracion / 1000.0);  // Cruces 
     }
 
     // Mostrar la amplitud y la frecuencia en el Serial Monitor
