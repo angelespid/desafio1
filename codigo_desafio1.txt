@@ -43,7 +43,7 @@ void loop() {
     lcd.print("Adquiriendo...");
     valorMax = offset;  
     valorMin = offset;  
-    cruces = 0;  // Reiniciar el contador de cruces
+    cruces = 0;  // Reiniciar el contador
     estadoAnterior = analogRead(analogPin);  // Estado inicial de la señal
     tiempoInicio = millis();  // Registra el tiempo de inicio
     tiempoUltimoCambio = tiempoActual;
@@ -68,29 +68,119 @@ void loop() {
     Serial.print("Amplitud pico a pico: ");
     Serial.print(amplitudVoltios);
     Serial.println(" V");
+#include <LiquidCrystal.h>
 
+LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
+
+int analogPin = A0;
+int botonInicio = 8;  // Botón para empezar
+int botonDetener = 13;  // Botón para detener
+int val = 0;
+bool adquiriendo = false;
+
+int valorMax = -1024;  // Valor máximo
+int valorMin = 1024;   // Valor mínimo
+int cruces = 0;  // Cruces por el valor medio
+float frecuencia = 0;  // Frecuencia
+float amplitudVoltios = 0;  // Amplitud en voltios
+const int offset = 511;  // Valor de referencia (2.5V)
+
+unsigned long tiempoInicio = 0;  // Tiempo inicial
+unsigned long duracion = 0;  // Duración
+
+int muestraAnterior = 0;  // Muestra anterior
+bool enPico = false;  // Para verificar si hay un pico
+
+// Identificar tipo de onda
+bool esCuadrada = true;
+bool esSenoidal = true;
+bool esTriangular = true;
+
+void setup() {
+  Serial.begin(9600);
+  lcd.begin(16, 2);
+
+  pinMode(botonInicio, INPUT_PULLUP);
+  pinMode(botonDetener, INPUT_PULLUP);
+
+  lcd.print("Esperando...");
+}
+
+void loop() {
+  unsigned long tiempoActual = millis();
+
+  // Iniciar adquisición
+  if (digitalRead(botonInicio) == LOW && !adquiriendo) {
+    adquiriendo = true;
+    valorMax = -1024;  // Reiniciar máximos y mínimos
+    valorMin = 1024;
+    cruces = 0;
+    esCuadrada = true;  // Suponemos cuadrada al principio
+    esSenoidal = true;  // Suponemos senoidal al principio
+    esTriangular = true;  // Suponemos triangular al principio
+    enPico = false;  // Reiniciar picos
+    muestraAnterior = analogRead(analogPin);  // Tomar primera muestra
+    tiempoInicio = millis();  // Guardar el tiempo
+    lcd.clear();
+    lcd.print("Leyendo...");
+    Serial.println("Adquisición iniciada...");
+  }
+
+  // Detener adquisición
+  if (digitalRead(botonDetener) == LOW && adquiriendo) {
+    adquiriendo = false;
+    duracion = millis() - tiempoInicio;  // Calcular duración
+
+    // Calcular amplitud
+    int amplitudPicoPico = valorMax - valorMin;
+    amplitudVoltios = amplitudPicoPico * (5.0 / 1023.0);  // Convertir a voltios
+
+    // Calcular frecuencia
+    if (duracion > 0) {
+      frecuencia = (cruces / 2.0) / (duracion / 1000.0);  // Frecuencia en Hz
+    }
+
+    // Mostrar resultados en Serial
+    Serial.print("Amplitud: ");
+    Serial.print(amplitudVoltios);
+    Serial.println(" V");
     Serial.print("Frecuencia: ");
-    Serial.print(frecuenciaHz);
+    Serial.print(frecuencia);
     Serial.println(" Hz");
 
-    // Mostrar la amplitud y frecuencia en la LCD
+    // Mostrar en la LCD
+    lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("Amp: ");
     lcd.print(amplitudVoltios);
     lcd.print(" V");
     lcd.setCursor(0, 1);
     lcd.print("Freq: ");
-    lcd.print(frecuenciaHz);
+    lcd.print(frecuencia);
     lcd.print(" Hz");
 
-    tiempoUltimoCambio = tiempoActual;
+    delay(1500);  // Pausa para mostrar
+
+    // Mostrar tipo de onda
+    lcd.clear();
+    if (esCuadrada) {
+      lcd.print("Onda: Cuadrada");
+    } else if (esSenoidal) {
+      lcd.print("Onda: Senoidal");
+    } else if (esTriangular) {
+      lcd.print("Onda: Triangular");
+    } else {
+      lcd.print("Onda: Desconocida");
+    }
+
+    Serial.println("Adquisición detenida.");
   }
 
-  // Si estamos adquiriendo, leer los valores del pin analógico
+  // Tomar lecturas si está adquiriendo
   if (adquiriendo) {
-    int lectura = analogRead(analogPin);  // Leer el valor analógico
+    int lectura = analogRead(analogPin);  // Leer valor
 
-    // Actualizar el valor máximo y mínimo
+    // Actualizar máximos y mínimos
     if (lectura > valorMax) {
       valorMax = lectura;
     }
@@ -98,16 +188,39 @@ void loop() {
       valorMin = lectura;
     }
 
-    // Contar los cruces por el valor de referencia (offset)
-    if ((lectura > offset && estadoAnterior <= offset) || (lectura < offset && estadoAnterior >= offset)) {
+    // Contar cruces por el valor medio
+    if ((lectura > offset && muestraAnterior <= offset) || (lectura < offset && muestraAnterior >= offset)) {
       cruces++;
     }
-    estadoAnterior = lectura;  // Actualizar el estado anterior
 
-    // Mostrar el valor actual en el Monitor Serial
-    Serial.print("Valor actual: ");
+    // Detectar si no es cuadrada
+    if (lectura != valorMax && lectura != valorMin) {
+      esCuadrada = false;
+    }
+
+    // Detectar picos
+    int pendienteActual = lectura - muestraAnterior;  // Pendiente entre muestras
+
+    // Comprobar si estamos en un pico
+    if ((pendienteActual < 0 && muestraAnterior > valorMax * 0.9) || 
+        (pendienteActual > 0 && muestraAnterior < valorMin * 1.1)) {
+      enPico = true;
+    } else {
+      enPico = false;
+    }
+
+    // Verificar si es triangular o senoidal
+    if (enPico && abs(pendienteActual) < 10) {
+      esTriangular = false;
+    } else if (enPico && abs(pendienteActual) > 50) {
+      esSenoidal = false;
+    }
+
+    muestraAnterior = lectura;  // Actualizar muestra anterior
+
+    // Mostrar valor actual en el Monitor Serial
     Serial.println(lectura);
 
-    delayMicroseconds(10);  // Pausa para mejorar la simulación
+    delay(100);  // Pausa corta
   }
 }
