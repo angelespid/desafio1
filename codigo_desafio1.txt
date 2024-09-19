@@ -3,76 +3,6 @@
 LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
 
 int analogPin = A0;
-int botonInicio = 8;  // Botón para iniciar 
-int botonDetener = 13;  // Botón para detener
-
-int val = 0;
-bool adquiriendo = false;
-
-int valorMax = 511;  // Punto 
-int valorMin = 511;  // Punto medio
-float amplitudVoltios = 0;  // Variable para almacenar la amplitud
-const int offset = 511; 
-
-unsigned long tiempoUltimoCambio = 0;
-const unsigned long debounceDelay = 200;
-
-int cruces = 0;  // Contador de cruces
-int estadoAnterior = 511;  
-unsigned long tiempoInicio = 0;  
-unsigned long duracion = 0;  // tiempo
-float frecuenciaHz = 0;  
-
-void setup() {
-  Serial.begin(9600);
-  lcd.begin(16, 2);
-
-  pinMode(botonInicio, INPUT_PULLUP);  
-  pinMode(botonDetener, INPUT_PULLUP);  
-
-  lcd.print("Esperando...");
-}
-
-void loop() {
-  unsigned long tiempoActual = millis();
-
-  //  botón de inicio
-  if (digitalRead(botonInicio) == LOW && (tiempoActual - tiempoUltimoCambio > debounceDelay)) {
-    adquiriendo = true;  // Cambia el estado a adquiriendo
-    lcd.clear();
-    lcd.print("Adquiriendo...");
-    valorMax = offset;  
-    valorMin = offset;  
-    cruces = 0;  // Reiniciar el contador
-    estadoAnterior = analogRead(analogPin);  // Estado inicial de la señal
-    tiempoInicio = millis();  // Registra el tiempo de inicio
-    tiempoUltimoCambio = tiempoActual;
-  }
-
-  //  botón de detener
-  if (digitalRead(botonDetener) == LOW && (tiempoActual - tiempoUltimoCambio > debounceDelay)) {
-    adquiriendo = false;  
-    lcd.clear();
-    lcd.print("Detenido...");
-
-    // Calcula la amplitud en voltios
-    amplitudVoltios = (valorMax - valorMin) * (5.0 / 1023.0);
-
-    // Calcula la duración de la toma de muestra
-    duracion = millis() - tiempoInicio;  // Duración
-    if (duracion > 0) {
-      frecuenciaHz = (cruces / 2.0) / (duracion / 1000.0);  // Cruces 
-    }
-
-    // Mostrar la amplitud y la frecuencia en el Serial Monitor
-    Serial.print("Amplitud pico a pico: ");
-    Serial.print(amplitudVoltios);
-    Serial.println(" V");
-#include <LiquidCrystal.h>
-
-LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
-
-int analogPin = A0;
 int botonInicio = 8;  // Botón para empezar
 int botonDetener = 13;  // Botón para detener
 int val = 0;
@@ -90,6 +20,13 @@ unsigned long duracion = 0;  // Duración
 
 int muestraAnterior = 0;  // Muestra anterior
 bool enPico = false;  // Para verificar si hay un pico
+
+// Punteros para manejar los valores máximos y mínimos
+int *ptrValorMax = &valorMax;
+int *ptrValorMin = &valorMin;
+
+// Puntero para la lectura actual de la señal
+int *ptrLectura = &val;
 
 // Identificar tipo de onda
 bool esCuadrada = true;
@@ -112,8 +49,8 @@ void loop() {
   // Iniciar adquisición
   if (digitalRead(botonInicio) == LOW && !adquiriendo) {
     adquiriendo = true;
-    valorMax = -1024;  // Reiniciar máximos y mínimos
-    valorMin = 1024;
+    *ptrValorMax = -1024;  // Reiniciar máximos y mínimos
+    *ptrValorMin = 1024;
     cruces = 0;
     esCuadrada = true;  // Suponemos cuadrada al principio
     esSenoidal = true;  // Suponemos senoidal al principio
@@ -132,7 +69,7 @@ void loop() {
     duracion = millis() - tiempoInicio;  // Calcular duración
 
     // Calcular amplitud
-    int amplitudPicoPico = valorMax - valorMin;
+    int amplitudPicoPico = *ptrValorMax - *ptrValorMin;
     amplitudVoltios = amplitudPicoPico * (5.0 / 1023.0);  // Convertir a voltios
 
     // Calcular frecuencia
@@ -178,32 +115,32 @@ void loop() {
 
   // Tomar lecturas si está adquiriendo
   if (adquiriendo) {
-    int lectura = analogRead(analogPin);  // Leer valor
+    *ptrLectura = analogRead(analogPin);  // Leer valor usando puntero
 
     // Actualizar máximos y mínimos
-    if (lectura > valorMax) {
-      valorMax = lectura;
+    if (*ptrLectura > *ptrValorMax) {
+      *ptrValorMax = *ptrLectura;
     }
-    if (lectura < valorMin) {
-      valorMin = lectura;
+    if (*ptrLectura < *ptrValorMin) {
+      *ptrValorMin = *ptrLectura;
     }
 
     // Contar cruces por el valor medio
-    if ((lectura > offset && muestraAnterior <= offset) || (lectura < offset && muestraAnterior >= offset)) {
+    if ((*ptrLectura > offset && muestraAnterior <= offset) || (*ptrLectura < offset && muestraAnterior >= offset)) {
       cruces++;
     }
 
     // Detectar si no es cuadrada
-    if (lectura != valorMax && lectura != valorMin) {
+    if (*ptrLectura != *ptrValorMax && *ptrLectura != *ptrValorMin) {
       esCuadrada = false;
     }
 
     // Detectar picos
-    int pendienteActual = lectura - muestraAnterior;  // Pendiente entre muestras
+    int pendienteActual = *ptrLectura - muestraAnterior;  // Pendiente entre muestras
 
     // Comprobar si estamos en un pico
-    if ((pendienteActual < 0 && muestraAnterior > valorMax * 0.9) || 
-        (pendienteActual > 0 && muestraAnterior < valorMin * 1.1)) {
+    if ((pendienteActual < 0 && muestraAnterior > *ptrValorMax * 0.9) || 
+        (pendienteActual > 0 && muestraAnterior < *ptrValorMin * 1.1)) {
       enPico = true;
     } else {
       enPico = false;
@@ -216,10 +153,10 @@ void loop() {
       esSenoidal = false;
     }
 
-    muestraAnterior = lectura;  // Actualizar muestra anterior
+    muestraAnterior = *ptrLectura;  // Actualizar muestra anterior
 
     // Mostrar valor actual en el Monitor Serial
-    Serial.println(lectura);
+    Serial.println(*ptrLectura);
 
     delay(100);  // Pausa corta
   }
